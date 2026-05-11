@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+@theme {
+  --color-burgundy: #93032E;
+  --color-burgundy-hover: #b30438;
+  --color-night: #151515;
+  --color-overlay: #1e1e1e;
+  
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  --burgundy-rgb: 147, 3, 46;
+}
+
+.dark {
+  --color-burgundy: #93032E;
+  --color-burgundy-hover: #b30438;
+  --burgundy-rgb: 147, 3, 46;
+}
+
+@utility glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+@utility glass-burgundy {
+  background: rgba(var(--burgundy-rgb), 0.08);
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(var(--burgundy-rgb), 0.2);
+  box-shadow: 0 8px 32px 0 rgba(var(--burgundy-rgb), 0.1);
+}
+
+@utility glass-light {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(209, 213, 219, 0.3);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+}
+
+@layer base {
+  body {
+    @apply transition-colors duration-500 overflow-x-hidden selection:bg-burgundy selection:text-white;
+  }
+}
+
+@layer components {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-burgundy/30 rounded-full hover:bg-burgundy/50;
+  }
+}
