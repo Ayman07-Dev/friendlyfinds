@@ -11,9 +11,10 @@ interface ProductCardProps {
   onEdit: (product: Product) => void;
   onDelete: (id: string) => void;
   onShare: (product: Product) => void;
+  onImageClick: (product: Product) => void;
 }
 
-export default function ProductCard({ product, theme, isAdmin, onEdit, onDelete, onShare }: ProductCardProps) {
+export default function ProductCard({ product, theme, isAdmin, onEdit, onDelete, onShare, onImageClick }: ProductCardProps) {
   const isDark = theme === 'dark';
 
   return (
@@ -31,8 +32,24 @@ export default function ProductCard({ product, theme, isAdmin, onEdit, onDelete,
         {product.category}
       </div>
 
+      {product.originalPrice && product.salePrice && (
+        <div className="absolute top-10 right-10 z-10 bg-burgundy text-white px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-lg shadow-burgundy/20 pointer-events-none">
+          {(() => {
+            const original = parseFloat(product.originalPrice.replace(/[^0-9.]/g, ''));
+            const sale = parseFloat(product.salePrice.replace(/[^0-9.]/g, ''));
+            if (!isNaN(original) && !isNaN(sale) && original > 0) {
+              return Math.round(((original - sale) / original) * 100) + '% OFF';
+            }
+            return 'SALE';
+          })()}
+        </div>
+      )}
+
       {/* Image Container */}
-      <div className={`aspect-square rounded-2xl mb-6 overflow-hidden relative ${isDark ? 'bg-gradient-to-br from-gray-800 to-gray-900 border border-white/5' : 'bg-gray-100'}`}>
+      <div 
+        onClick={() => onImageClick(product)}
+        className={`aspect-square rounded-2xl mb-6 overflow-hidden relative cursor-pointer group-hover:shadow-2xl transition-all duration-500 ${isDark ? 'bg-gradient-to-br from-gray-800 to-gray-900 border border-white/5' : 'bg-gray-100'}`}
+      >
         {product.imageUrl && product.imageUrl.trim() !== '' ? (
           <img 
             src={product.imageUrl} 
@@ -58,9 +75,40 @@ export default function ProductCard({ product, theme, isAdmin, onEdit, onDelete,
         <h3 className={`text-xl font-bold mb-1 truncate ${isDark ? 'text-white' : 'text-night'}`}>
           {product.name}
         </h3>
-        <p className="text-burgundy font-black text-lg mb-3">
-          {product.price}
-        </p>
+        
+        <div className="mb-4">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <span className="text-burgundy font-black text-3xl">
+                {product.salePrice ? product.salePrice : product.price}
+              </span>
+            </div>
+            
+            {product.originalPrice && (
+              <div className={`text-sm flex items-center gap-2 font-bold ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>
+                M.R.P: <span className="line-through">{product.originalPrice}</span>
+              </div>
+            )}
+
+            {(product.originalPrice && product.salePrice) && (
+              <div className="flex items-center gap-2 mt-1">
+                <div className="bg-burgundy text-white px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-tight shadow-lg shadow-burgundy/20">
+                  {(() => {
+                    const original = parseFloat(product.originalPrice?.replace(/[^0-9.]/g, '') || '0');
+                    const sale = parseFloat(product.salePrice?.replace(/[^0-9.]/g, '') || '0');
+                    if (!isNaN(original) && !isNaN(sale) && original > 0) {
+                      return Math.round(((original - sale) / original) * 100) + '% OFF';
+                    }
+                    return 'SALE';
+                  })()}
+                </div>
+                <span className="text-xs font-black text-burgundy uppercase tracking-wide">
+                  Great Deal
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
         
         <p className={`text-xs leading-relaxed line-clamp-2 mb-6
           ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>

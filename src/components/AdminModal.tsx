@@ -15,6 +15,8 @@ export default function AdminModal({ isOpen, onClose, onSave, product, theme }: 
   const [formData, setFormData] = useState<Partial<Product>>({
     name: '',
     price: '',
+    originalPrice: '',
+    salePrice: '',
     description: '',
     imageUrl: '',
     productLink: '',
@@ -23,11 +25,17 @@ export default function AdminModal({ isOpen, onClose, onSave, product, theme }: 
 
   useEffect(() => {
     if (product) {
-      setFormData(product);
+      setFormData({
+        ...product,
+        originalPrice: product.originalPrice || '',
+        salePrice: product.salePrice || ''
+      });
     } else {
       setFormData({
         name: '',
         price: '',
+        originalPrice: '',
+        salePrice: '',
         description: '',
         imageUrl: '',
         productLink: '',
@@ -38,8 +46,27 @@ export default function AdminModal({ isOpen, onClose, onSave, product, theme }: 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    // If salePrice is provided, update the main price field as well for backward compatibility
+    const updatedData = {
+      ...formData,
+      price: formData.salePrice || formData.price
+    };
+    onSave(updatedData);
   };
+
+  const calculateDiscount = () => {
+    if (formData.originalPrice && formData.salePrice) {
+      const original = parseFloat(formData.originalPrice.replace(/[^0-9.]/g, ''));
+      const sale = parseFloat(formData.salePrice.replace(/[^0-9.]/g, ''));
+      if (!isNaN(original) && !isNaN(sale) && original > 0) {
+        const discount = Math.round(((original - sale) / original) * 100);
+        return discount > 0 ? discount : null;
+      }
+    }
+    return null;
+  };
+
+  const discount = calculateDiscount();
 
   const isDark = theme === 'dark';
 
@@ -84,17 +111,38 @@ export default function AdminModal({ isOpen, onClose, onSave, product, theme }: 
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase tracking-[0.3em] text-burgundy ml-1">Price</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  className={`w-full px-4 py-2.5 text-sm rounded-xl border outline-none transition-all focus:ring-4 focus:ring-burgundy/20
-                    ${isDark ? 'bg-white/5 border-white/5 text-white' : 'bg-gray-50/50 border-gray-100 text-night'}`}
-                  placeholder="e.g. 465rs"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-[0.3em] text-burgundy ml-1">Original Price (M.R.P)</label>
+                  <input
+                    type="text"
+                    value={formData.originalPrice}
+                    onChange={(e) => setFormData({ ...formData, originalPrice: e.target.value })}
+                    className={`w-full px-4 py-2.5 text-sm rounded-xl border outline-none transition-all focus:ring-4 focus:ring-burgundy/20
+                      ${isDark ? 'bg-white/5 border-white/5 text-white' : 'bg-gray-50/50 border-gray-100 text-night'}`}
+                    placeholder="e.g. 1499"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-[0.3em] text-burgundy ml-1">Sale Price</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      required
+                      value={formData.salePrice}
+                      onChange={(e) => setFormData({ ...formData, salePrice: e.target.value })}
+                      className={`w-full px-4 py-2.5 text-sm rounded-xl border outline-none transition-all focus:ring-4 focus:ring-burgundy/20
+                        ${isDark ? 'bg-white/5 border-white/5 text-white' : 'bg-gray-50/50 border-gray-100 text-night'}`}
+                      placeholder="e.g. 720"
+                    />
+                    {discount && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-bold bg-burgundy text-white px-2 py-0.5 rounded-full">
+                        -{discount}%
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-1">

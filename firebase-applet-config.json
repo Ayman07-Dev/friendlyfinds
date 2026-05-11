@@ -1,0 +1,11 @@
+{
+  "apiKey": "AIzaSyAmZeNCNT3iJccWtK3sZStMAqvmwsR3WYw",
+  "authDomain": "friendlyfinds.firebaseapp.com",
+  "databaseURL": "https://friendlyfinds-default-rtdb.asia-southeast1.firebasedatabase.app",
+  "projectId": "friendlyfinds",
+  "storageBucket": "friendlyfinds.firebasestorage.app",
+  "messagingSenderId": "94092230039",
+  "appId": "1:94092230039:web:507c58cd3d7a8cb3d918d2",
+  "measurementId": "G-MD05GYMGPP",
+  "firestoreDatabaseId": "ai-studio-76e98d36-ad7d-4ba3-a1e8-f06cdc01288a"
+}

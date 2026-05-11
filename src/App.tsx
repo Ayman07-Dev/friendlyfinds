@@ -11,6 +11,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, Plus, LogOut, Loader2 } from 'lucide-react';
+import { collection, onSnapshot, query, orderBy, addDoc, updateDoc, deleteDoc, doc, getDocFromServer } from 'firebase/firestore';
+import { onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { db, auth, handleFirestoreError, OperationType } from './lib/firebase';
+import firebaseConfig from '../firebase-applet-config.json';
 
 import { Product, Theme } from './types';
 
@@ -18,43 +22,8 @@ import Navbar from './components/Navbar';
 import ProductCard from './components/ProductCard';
 import AdminModal from './components/AdminModal';
 import LoginModal from './components/LoginModal';
+import ProductDetailModal from './components/ProductDetailModal';
 import Footer from './components/Footer';
-
-const INITIAL_PRODUCTS: Product[] = [
-  {
-    id: '1',
-    name: 'Royal Heritage Watch',
-    price: '$1,200',
-    description: 'A timeless timepiece crafted with precision and elegance.',
-    imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=1000',
-    productLink: 'https://example.com/watch',
-    category: 'Accessories',
-    createdAt: Date.now(),
-    updatedAt: Date.now()
-  },
-  {
-    id: '2',
-    name: 'Artisan Leather Bag',
-    price: '$850',
-    description: 'Hand-stitched premium leather bag for the modern professional.',
-    imageUrl: 'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?auto=format&fit=crop&q=80&w=1000',
-    productLink: 'https://example.com/bag',
-    category: 'Fashion',
-    createdAt: Date.now(),
-    updatedAt: Date.now()
-  },
-  {
-    id: '3',
-    name: 'Velvet Evening Perfume',
-    price: '$240',
-    description: 'A sophisticated scent capturing the essence of night.',
-    imageUrl: 'https://images.unsplash.com/photo-1541643600914-78b084683601?auto=format&fit=crop&q=80&w=1000',
-    productLink: 'https://example.com/perfume',
-    category: 'Beauty',
-    createdAt: Date.now(),
-    updatedAt: Date.now()
-  }
-];
 
 export default function App() {
   const [theme, setTheme] = useState<Theme>(() => {
@@ -62,22 +31,67 @@ export default function App() {
     return (saved as Theme) || 'light';
   });
   
-  const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem('products');
-    return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
-  });
-
+  const [products, setProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [user, setUser] = useState<{ username: string } | null>(() => {
     const saved = localStorage.getItem('user');
     return saved ? JSON.parse(saved) : null;
   });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Test connection to Firestore as required by instructions
+  useEffect(() => {
+    async function testConnection() {
+      try {
+        await getDocFromServer(doc(db, 'test', 'connection'));
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('the client is offline')) {
+          console.error("Please check your Firebase configuration.");
+        }
+      }
+    }
+    testConnection();
+  }, []);
+
+  // Firebase Auth sync
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        const admins = ['revanthsai3567@gmail.com', 'ayman.saleem07@gmail.com'];
+        if (firebaseUser.email && admins.includes(firebaseUser.email)) {
+          setUser({ username: 'Admin' });
+        }
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch products from Firestore
+  useEffect(() => {
+    const q = query(collection(db, 'products'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const prods: Product[] = [];
+      snapshot.forEach((doc) => {
+        prods.push({ id: doc.id, ...doc.data() } as Product);
+      });
+      setProducts(prods);
+      setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'products');
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   // Modals state
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [loginError, setLoginError] = useState('');
   const [logoutStatus, setLogoutStatus] = useState<string | null>(null);
@@ -86,10 +100,6 @@ export default function App() {
     localStorage.setItem('theme', theme);
     document.documentElement.classList.toggle('dark', theme === 'dark');
   }, [theme]);
-
-  useEffect(() => {
-    localStorage.setItem('products', JSON.stringify(products));
-  }, [products]);
 
   useEffect(() => {
     if (user) {
@@ -111,55 +121,99 @@ export default function App() {
     return matchesSearch && matchesCategory;
   });
 
-  const handleLogin = async (username: string, pass: string) => {
-    setLoginError('');
-    // Simple mock authentication based on requested details
-    if (username === 'hassle_07' && pass === 'friendly_finds@0408') {
-      setUser({ username });
+  const handleLogin = async (email: string, pass: string) => {
+    try {
+      setLoading(true);
+      setLoginError('');
+      
+      const loginEmail = email.includes('@') ? email : `${email}@friendlyfinds.com`;
+      await signInWithEmailAndPassword(auth, loginEmail, pass);
+      
       setIsLoginOpen(false);
-    } else {
-      setLoginError('Invalid credentials');
+    } catch (error: any) {
+      console.error("Firebase Login Error", error);
+      if (error.code === 'auth/operation-not-allowed') {
+        setLoginError(`AUTH ERROR: Email/Password login is DISABLED for project [${firebaseConfig.projectId}]. Please enable it in your Firebase Console.`);
+      } else if (error.code === 'auth/user-not-found') {
+        setLoginError(`User not found. Ensure the account [revanthsai3567@gmail.com] is registered in Firebase.`);
+      } else if (error.code === 'auth/wrong-password') {
+        setLoginError('Incorrect password.');
+      } else {
+        setLoginError(`Login failed: ${error.message}`);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    setUser(null);
-    setLogoutStatus('Logged Out');
-    setTimeout(() => setLogoutStatus(null), 2000);
+  const handleRegister = async (email: string, pass: string) => {
+    try {
+      setLoading(true);
+      setLoginError('');
+      
+      const loginEmail = email.includes('@') ? email : `${email}@friendlyfinds.com`;
+      await createUserWithEmailAndPassword(auth, loginEmail, pass);
+      
+      setIsLoginOpen(false);
+    } catch (error: any) {
+      console.error("Firebase Register Error", error);
+      if (error.code === 'auth/operation-not-allowed') {
+        setLoginError(`AUTH ERROR: Email/Password registration is DISABLED for project [${firebaseConfig.projectId}]. Please enable it in your Firebase Console.`);
+      } else if (error.code === 'auth/email-already-in-use') {
+        setLoginError('This email is already registered. Please login instead.');
+      } else if (error.code === 'auth/weak-password') {
+        setLoginError('Password is too weak. Must be at least 6 characters.');
+      } else {
+        setLoginError(`Registration failed: ${error.message}`);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSaveProduct = (data: Partial<Product>) => {
-    if (editingProduct) {
-      setProducts(prev => prev.map(p => 
-        p.id === editingProduct.id 
-          ? { ...p, ...data, updatedAt: Date.now() } 
-          : p
-      ));
-    } else {
-      const newProduct: Product = {
-        ...data as Omit<Product, 'id' | 'createdAt' | 'updatedAt'>,
-        id: Math.random().toString(36).substr(2, 9),
-        createdAt: Date.now(),
-        updatedAt: Date.now()
-      };
-      setProducts(prev => [newProduct, ...prev]);
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setUser(null);
+      setLogoutStatus('Logged Out');
+      setTimeout(() => setLogoutStatus(null), 2000);
+    } catch (error) {
+      console.error("Logout failed", error);
     }
-    setIsAdminModalOpen(false);
-    setEditingProduct(null);
+  };
+
+  const handleSaveProduct = async (data: Partial<Product>) => {
+    try {
+      if (editingProduct) {
+        const productRef = doc(db, 'products', editingProduct.id);
+        await updateDoc(productRef, {
+          ...data,
+          updatedAt: Date.now()
+        });
+      } else {
+        await addDoc(collection(db, 'products'), {
+          ...data,
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        });
+      }
+      setIsAdminModalOpen(false);
+      setEditingProduct(null);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'products');
+    }
   };
 
   const [deleteStatus, setDeleteStatus] = useState<string | null>(null);
 
-  const handleDeleteProduct = (id: string) => {
-    console.log('Attempting to delete product with ID:', id);
-    setProducts(prev => {
-      const filtered = prev.filter(p => String(p.id) !== String(id));
-      if (filtered.length !== prev.length) {
-        setDeleteStatus('Product Deleted');
-        setTimeout(() => setDeleteStatus(null), 2000);
-      }
-      return filtered;
-    });
+  const handleDeleteProduct = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'products', id));
+      setDeleteStatus('Product Deleted');
+      setTimeout(() => setDeleteStatus(null), 2000);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `products/${id}`);
+    }
   };
 
   const isDark = theme === 'dark';
@@ -287,6 +341,7 @@ export default function App() {
                     setIsAdminModalOpen(true);
                   }}
                   onDelete={handleDeleteProduct}
+                  onImageClick={(p) => setSelectedProduct(p)}
                   onShare={(p) => {
                     if (navigator.share) {
                       navigator.share({
@@ -386,6 +441,13 @@ export default function App() {
         onSave={handleSaveProduct}
         product={editingProduct}
         theme={theme}
+      />
+
+      <ProductDetailModal
+        theme={theme}
+        isOpen={!!selectedProduct}
+        onClose={() => setSelectedProduct(null)}
+        product={selectedProduct}
       />
     </div>
   );

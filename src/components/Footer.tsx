@@ -1,5 +1,5 @@
 import React from 'react';
-import { Youtube, Instagram } from 'lucide-react';
+import { Youtube, Instagram, Linkedin } from 'lucide-react';
 import { Theme } from '../types';
 
 interface FooterProps {
@@ -27,8 +27,14 @@ export default function Footer({ theme }: FooterProps) {
           <p className="text-[10px] font-black uppercase tracking-[0.3em] mb-2">
             FriendlyFinds. <span className="text-burgundy opacity-50">Premium Selection</span>
           </p>
-          <p className="text-[9px] opacity-40 uppercase tracking-widest">
+          <p className="text-[9px] opacity-40 uppercase tracking-widest mb-1">
             &copy; 2024 All Rights Reserved
+          </p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-60 flex items-center justify-center md:justify-end gap-2">
+            Curated by <span className="text-burgundy">Ayman Saleem</span>
+            <a href="https://www.linkedin.com/in/ayman-saleem-6069912ba/" target="_blank" rel="noopener noreferrer" className="hover:text-burgundy transition-colors inline-block">
+              <Linkedin size={14} />
+            </a>
           </p>
         </div>
       </div>
