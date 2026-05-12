@@ -1,8 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // ---------- Helpers ----------
+    // Helper functions
     function isSignedIn() {
       return request.auth != null;
     }
@@ -15,47 +14,37 @@ service cloud.firestore {
       );
     }
 
-    function isValidProduct(data) {
-      return data.keys().hasAll([
-        'name',
-        'price',
-        'description',
-        'imageUrl',
-        'productLink',
-        'category',
-        'createdAt',
-        'updatedAt'
-      ])
-      && data.name is string && data.name.size() <= 200
-      && data.price is string && data.price.size() <= 50
-      && data.description is string && data.description.size() <= 2000
-      && data.imageUrl is string && data.imageUrl.size() <= 1000
-      && data.productLink is string && data.productLink.size() <= 1000
-      && data.category is string && data.category.size() <= 100
-      && data.createdAt is number
-      && data.updatedAt is number;
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    // ---------- Products ----------
+    function isValidProduct(data) {
+      return data.keys().hasAll(['name', 'price', 'description', 'imageUrl', 'productLink', 'category', 'createdAt', 'updatedAt'])
+        && data.name is string && data.name.size() <= 200
+        && data.price is string && data.price.size() <= 50
+        && data.description is string && data.description.size() <= 2000
+        && data.imageUrl is string && data.imageUrl.size() <= 1000
+        && data.productLink is string && data.productLink.size() <= 1000
+        && data.category is string && data.category.size() <= 100
+        && data.createdAt is number
+        && data.updatedAt is number;
+    }
+
+    // Products collection
     match /products/{productId} {
-
-      // Anyone can read products
       allow read: if true;
-
-      // Only admin can create, with valid structure
-      allow create: if isAdmin()
-        && isValidProduct(request.resource.data);
-
-      // Only admin can update, and cannot change createdAt
-      allow update: if isAdmin()
-        && isValidProduct(request.resource.data)
-        && request.resource.data.createdAt == resource.data.createdAt;
-
-      // Only admin can delete
+      allow create: if isAdmin() && isValidId(productId) && isValidProduct(request.resource.data);
+      allow update: if isAdmin() && isValidProduct(request.resource.data);
       allow delete: if isAdmin();
     }
 
-    // ---------- Default deny ----------
+    // Admins collection
+    match /admins/{adminId} {
+      allow read: if isSignedIn() && request.auth.uid == adminId;
+      allow write: if false;
+    }
+
+    // Default deny for everything else
     match /{document=**} {
       allow read, write: if false;
     }
